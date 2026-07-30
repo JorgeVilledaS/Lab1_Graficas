@@ -1,3 +1,9 @@
+use image::{RgbImage, Rgb};
+
+const WIDTH: u32 = 800;
+const HEIGHT: u32 = 450;
+
 fn main() {
-    println!("Hello, world!");
+    let mut img = RgbImage::from_pixel(WIDTH, HEIGHT, Rgb([255, 255, 255]));
+    img.save("out.png").expect("No se pudo guardar la imagen");
 }
