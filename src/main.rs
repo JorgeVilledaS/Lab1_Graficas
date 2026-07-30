@@ -1,6 +1,7 @@
 use image::{RgbImage, Rgb};
 mod point;
 use point::Point;
+mod line;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 450;
