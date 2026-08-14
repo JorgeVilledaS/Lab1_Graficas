@@ -26,45 +26,50 @@ impl Polygon {
 // Rellena un conjunto de polígonos usando regla par-impar.
 // Si pasas varios polígonos juntos (ej: figura + hueco),
 // el hueco queda automáticamente sin pintar.
-pub fn fill_polygons(img: &mut RgbImage, polygons: &[&Polygon]) {
+//
+pub fn fill_polygons(img: &mut RgbImage, polygons: &[&Polygon], color: Rgb<u8>) {
     // Recolectamos TODAS las aristas de TODOS los polígonos juntos
-    let mut edges: Vec<(Point, Point, Rgb<u8>)> = Vec::new();
+    let mut edges: Vec<(Point, Point)> = Vec::new();
     for poly in polygons {
         let n = poly.points.len();
         for i in 0..n {
             let p0 = poly.points[i];
             let p1 = poly.points[(i + 1) % n];
-            edges.push((p0, p1, poly.fill_color));
+            edges.push((p0, p1));
         }
     }
 
-    let min_y = edges.iter().map(|(p0, p1, _)| p0.y.min(p1.y)).min().unwrap_or(0);
-    let max_y = edges.iter().map(|(p0, p1, _)| p0.y.max(p1.y)).max().unwrap_or(0);
+    let min_y = edges.iter().map(|(p0, p1)| p0.y.min(p1.y)).min().unwrap_or(0);
+    let max_y = edges.iter().map(|(p0, p1)| p0.y.max(p1.y)).max().unwrap_or(0);
 
     for y in min_y..=max_y {
-        // Buscamos intersecciones de la scanline y con cada arista
-        let mut intersections: Vec<(f64, Rgb<u8>)> = Vec::new();
+        // Muestreamos en el CENTRO del pixel (y + 0.5) para evitar
+        // ambigüedad cuando un vértice cae justo en una coordenada entera
+        // (picos/valles duplicando intersecciones).
+        let yc = y as f64 + 0.5;
 
-        for (p0, p1, color) in &edges {
-            let (y0, y1) = (p0.y, p1.y);
+        let mut xs_inter: Vec<f64> = Vec::new();
+
+        for (p0, p1) in &edges {
+            let (y0, y1) = (p0.y as f64, p1.y as f64);
             if y0 == y1 { continue; } // arista horizontal, se ignora
 
-            // La scanline debe cruzar la arista (regla: incluye un extremo, excluye el otro)
-            if (y >= y0 && y < y1) || (y >= y1 && y < y0) {
-                let t = (y - y0) as f64 / (y1 - y0) as f64;
+            if (yc >= y0 && yc < y1) || (yc >= y1 && yc < y0) {
+                let t = (yc - y0) / (y1 - y0);
                 let x = p0.x as f64 + t * (p1.x - p0.x) as f64;
-                intersections.push((x, *color));
+                xs_inter.push(x);
             }
         }
 
         // Ordenamos de izquierda a derecha
-        intersections.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        xs_inter.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
         // Pintamos entre pares: (0-1) pintado, (2-3) pintado, etc.
+        // TODOS los pares usan el mismo `color` (un solo parámetro).
         let mut i = 0;
-        while i + 1 < intersections.len() {
-            let (x_start, color) = intersections[i];
-            let (x_end, _) = intersections[i + 1];
+        while i + 1 < xs_inter.len() {
+            let x_start = xs_inter[i];
+            let x_end = xs_inter[i + 1];
 
             let xs = x_start.round() as i32;
             let xe = x_end.round() as i32;
